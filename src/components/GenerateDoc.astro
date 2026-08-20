@@ -1,0 +1,122 @@
+---
+import { actions } from "astro:actions";
+
+interface Props {
+    title?: string;
+    description?: string;
+}
+
+const {
+    title = "Generador de Documentos",
+    description = "Haz clic para procesar la acción del servidor y generar tu documento.",
+} = Astro.props;
+---
+
+<form
+    id="generate-form"
+    action={actions.createCertificate}
+    method="POST"
+    class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl p-6 border border-gray-100 transition-all hover:shadow-lg"
+>
+    <div class="flex items-center space-x-4">
+        <div class="p-3 bg-indigo-50 rounded-lg text-indigo-600">
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-8 w-8"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                ></path>
+            </svg>
+        </div>
+
+        <div>
+            <h3 class="text-lg font-semibold text-gray-900">{title}</h3>
+            <p class="text-sm text-gray-500">{description}</p>
+        </div>
+    </div>
+
+    <div>
+        <input
+            id="receiver"
+            name="receiver"
+            type="text"
+            required
+            class="border p-2 mt-4 w-full rounded-md"
+            placeholder="Nombre del alumno"
+        />
+    </div>
+
+    <div class="mt-6 flex justify-end">
+        <button
+            type="submit"
+            id="generate-btn"
+            class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
+        >
+            <svg
+                id="btn-icon"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                ></path>
+            </svg>
+            <span id="btn-text">Generar Documento</span>
+        </button>
+    </div>
+</form>
+
+<script>
+    import { actions } from "astro:actions";
+
+    const form = document.getElementById(
+        "generate-form",
+    ) as HTMLFormElement | null;
+    const button = document.getElementById(
+        "generate-btn",
+    ) as HTMLButtonElement | null;
+    const btnText = document.getElementById("btn-text");
+    const btnIcon = document.getElementById("btn-icon");
+
+    form?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (btnText && button) {
+            btnText.textContent = "Generando...";
+            button.setAttribute("disabled", "true");
+            button.classList.add("opacity-75", "cursor-not-allowed");
+            if (btnIcon) btnIcon.classList.add("animate-bounce");
+        }
+
+        const formData = new FormData(form!);
+        const { error: docError, data: docResult } =
+            await actions.createCertificate(formData);
+
+        if (docError) {
+            console.error("Error al generar el documento:", docError);
+            alert(`Hubo un error: ${docError.message || "Desconocido"}`);
+        }
+
+        if (btnText && button) {
+            btnText.textContent = "Generar Documento";
+            button.removeAttribute("disabled");
+            button.classList.remove("opacity-75", "cursor-not-allowed");
+            if (btnIcon) btnIcon.classList.remove("animate-bounce");
+        }
+
+        console.log("Resultado del documento:", docResult);
+    });
+</script>
