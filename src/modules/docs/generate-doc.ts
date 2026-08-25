@@ -41,19 +41,6 @@ export async function modifyDoc({ receiver }: modifyDocProps) {
         color: rgb(0, 0, 0)
     });
 
-    const qrBuffer = await generarBufferQR(receiver);
-    const qrImage = await pdfDoc.embedPng(qrBuffer);
-    const qrDims = qrImage.scale(0.5);
-
-    page.drawImage(qrImage, {
-        x: pageWidth - qrDims.width - 50,
-        y: 50,
-        width: qrDims.width,
-        height: qrDims.height
-    })
-
-    const pdfResultBuffer = await pdfDoc.save();
-
     const now = new Date();
     const pad = (num: number) => String(num).padStart(2, '0');
     const month = pad(now.getMonth() + 1); // getMonth() is 0-indexed
@@ -66,6 +53,22 @@ export async function modifyDoc({ receiver }: modifyDocProps) {
     const nowFormatted = `${month}-${day}-${year}-${hours}-${minutes}-${seconds}`;
     const fileName = `diploma_${nowFormatted}_${receiver.replace(/\s+/g, '_')}.pdf`;
 
+    const APP_URL = process.env.APP_URL || "http://localhost:4321";
+    const verificationUrl = `${APP_URL}/validar?doc=${encodeURIComponent(fileName)}`;
+
+    const qrBuffer = await generarBufferQR(verificationUrl);
+    const qrImage = await pdfDoc.embedPng(qrBuffer);
+    const qrDims = qrImage.scale(0.5);
+
+    page.drawImage(qrImage, {
+        x: pageWidth - qrDims.width - 50,
+        y: 50,
+        width: qrDims.width,
+        height: qrDims.height
+    });
+
+    const pdfResultBuffer = await pdfDoc.save();
+
     const seaweedResult = await uploadPdfToSeaweed({
         pdfBuffer: pdfResultBuffer,
         fileName,
@@ -73,6 +76,9 @@ export async function modifyDoc({ receiver }: modifyDocProps) {
 
     return {
         success: seaweedResult.success,
+        fileName,
+        receiver,
+        verificationUrl,
         seaweed: seaweedResult,
     };
 }

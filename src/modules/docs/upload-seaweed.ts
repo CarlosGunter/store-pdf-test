@@ -1,10 +1,17 @@
-import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { tryCatch } from "src/utils/try-catch";
 
 export interface UploadPdfProps {
     pdfBuffer: Buffer | Uint8Array;
     fileName: string;
     bucketName?: string;
+}
+
+export interface PresignedUrlProps {
+    key: string;
+    bucketName?: string;
+    expiresIn?: number; // En segundos (por defecto 300 = 5 minutos)
 }
 
 const SEAWEEDFS_ENDPOINT = process.env.SEAWEEDFS_S3_ENDPOINT || "http://localhost:8333";
@@ -92,5 +99,78 @@ export async function uploadPdfToSeaweed({
         key: fileName,
         url: fileUrl,
         response,
+    };
+}
+
+/**
+ * Genera una URL temporal firmada (Presigned URL) para consultar o descargar el PDF.
+ */
+export async function getPresignedPdfUrl({
+    key,
+    bucketName = DEFAULT_BUCKET,
+    expiresIn = 300, // 5 minutos por defecto
+}: PresignedUrlProps) {
+    const s3Client = getSeaweedS3Client();
+
+    const command = new GetObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+    });
+
+    const { data: presignedUrl, error } = await tryCatch(
+        getSignedUrl(s3Client as any, command as any, { expiresIn })
+    );
+
+    if (error || !presignedUrl) {
+        console.error(`Error al generar URL firmada para '${key}':`, error);
+        return {
+            success: false,
+            error,
+        };
+    }
+
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    return {
+        success: true,
+        url: presignedUrl,
+        expiresIn,
+        expiresAt,
+    };
+}
+
+/**
+ * Verifica si un archivo existe en SeaweedFS y obtiene sus metadatos.
+ */
+export async function checkPdfExists({
+    key,
+    bucketName = DEFAULT_BUCKET,
+}: {
+    key: string;
+    bucketName?: string;
+}) {
+    const s3Client = getSeaweedS3Client();
+
+    const { data: headData, error } = await tryCatch(
+        s3Client.send(
+            new HeadObjectCommand({
+                Bucket: bucketName,
+                Key: key,
+            })
+        )
+    );
+
+    if (error || !headData) {
+        return {
+            exists: false,
+            error,
+        };
+    }
+
+    return {
+        exists: true,
+        contentLength: headData.ContentLength,
+        lastModified: headData.LastModified,
+        contentType: headData.ContentType,
     };
 }

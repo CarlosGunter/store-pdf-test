@@ -7,116 +7,173 @@ interface Props {
 }
 
 const {
-    title = "Generador de Documentos",
-    description = "Haz clic para procesar la acción del servidor y generar tu documento.",
+    title = "Generador de Diplomas Oficiales",
+    description = "Ingresa el nombre del alumno. El sistema generará el PDF con código QR y lo almacenará en SeaweedFS.",
 } = Astro.props;
 ---
 
-<form
-    id="generate-form"
-    action={actions.createCertificate}
-    method="POST"
-    class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl p-6 border border-gray-100 transition-all hover:shadow-lg"
->
-    <div class="flex items-center space-x-4">
-        <div class="p-3 bg-indigo-50 rounded-lg text-indigo-600">
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-8 w-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                ></path>
-            </svg>
+<div class="max-w-2xl mx-auto w-full space-y-6">
+    <form
+        id="generate-form"
+        action={actions.createCertificate}
+        method="POST"
+        class="bg-white rounded-2xl shadow-xl overflow-hidden p-6 sm:p-8 border border-slate-200 transition-all"
+    >
+        <div class="flex items-center space-x-4">
+            <div class="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-8 w-8"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    ></path>
+                </svg>
+            </div>
+
+            <div>
+                <h3 class="text-xl font-bold text-slate-900">{title}</h3>
+                <p class="text-sm text-slate-500">{description}</p>
+            </div>
         </div>
 
-        <div>
-            <h3 class="text-lg font-semibold text-gray-900">{title}</h3>
-            <p class="text-sm text-gray-500">{description}</p>
+        <div class="mt-6">
+            <label for="receiver" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Nombre del Alumno
+            </label>
+            <input
+                id="receiver"
+                name="receiver"
+                type="text"
+                required
+                class="border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 p-3 mt-1.5 w-full rounded-xl text-slate-800 font-medium transition-all"
+                placeholder="Ej. Carlos Gutiérrez Trejo"
+            />
+        </div>
+
+        <div class="mt-6 flex justify-end">
+            <button
+                type="submit"
+                id="generate-btn"
+                class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
+            >
+                <svg
+                    id="btn-icon"
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                    ></path>
+                </svg>
+                <span id="btn-text">Generar Certificado</span>
+            </button>
+        </div>
+    </form>
+
+    <!-- Tarjeta de Resultado de Certificado Generado -->
+    <div
+        id="result-card"
+        class="hidden bg-white rounded-2xl shadow-xl border border-emerald-200 p-6 sm:p-8 space-y-5 animate-fade-in"
+    >
+        <div class="flex items-center space-x-3 text-emerald-700">
+            <div class="p-2 bg-emerald-100 rounded-full">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </div>
+            <div>
+                <h4 class="text-lg font-bold text-slate-900">¡Certificado Generado Exitosamente!</h4>
+                <p class="text-xs text-slate-500">Guardado en SeaweedFS y listo para verificación con URL temporal.</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+            <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Alumno:</span>
+                <span id="result-student" class="font-bold text-slate-800"></span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-slate-500">Archivo en S3:</span>
+                <span id="result-file" class="font-mono text-xs text-indigo-600 truncate max-w-[280px]"></span>
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <a
+                id="verify-link"
+                href="#"
+                class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow transition-colors cursor-pointer"
+            >
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                </svg>
+                Probar Verificación por QR (Presigned URL)
+            </a>
         </div>
     </div>
-
-    <div>
-        <input
-            id="receiver"
-            name="receiver"
-            type="text"
-            required
-            class="border p-2 mt-4 w-full rounded-md"
-            placeholder="Nombre del alumno"
-        />
-    </div>
-
-    <div class="mt-6 flex justify-end">
-        <button
-            type="submit"
-            id="generate-btn"
-            class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
-        >
-            <svg
-                id="btn-icon"
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                ></path>
-            </svg>
-            <span id="btn-text">Generar Documento</span>
-        </button>
-    </div>
-</form>
+</div>
 
 <script>
     import { actions } from "astro:actions";
 
-    const form = document.getElementById(
-        "generate-form",
-    ) as HTMLFormElement | null;
-    const button = document.getElementById(
-        "generate-btn",
-    ) as HTMLButtonElement | null;
+    const form = document.getElementById("generate-form") as HTMLFormElement | null;
+    const button = document.getElementById("generate-btn") as HTMLButtonElement | null;
     const btnText = document.getElementById("btn-text");
     const btnIcon = document.getElementById("btn-icon");
+
+    const resultCard = document.getElementById("result-card");
+    const resultStudent = document.getElementById("result-student");
+    const resultFile = document.getElementById("result-file");
+    const verifyLink = document.getElementById("verify-link") as HTMLAnchorElement | null;
 
     form?.addEventListener("submit", async (e) => {
         e.preventDefault();
 
         if (btnText && button) {
-            btnText.textContent = "Generando...";
+            btnText.textContent = "Generando PDF y QR...";
             button.setAttribute("disabled", "true");
             button.classList.add("opacity-75", "cursor-not-allowed");
             if (btnIcon) btnIcon.classList.add("animate-bounce");
         }
 
         const formData = new FormData(form!);
-        const { error: docError, data: docResult } =
-            await actions.createCertificate(formData);
+        const { error: docError, data: docResult } = await actions.createCertificate(formData);
 
         if (docError) {
             console.error("Error al generar el documento:", docError);
             alert(`Hubo un error: ${docError.message || "Desconocido"}`);
+        } else if (docResult && docResult.success) {
+            if (resultStudent) resultStudent.textContent = docResult.receiver || "";
+            if (resultFile) resultFile.textContent = docResult.fileName || "";
+            if (verifyLink && docResult.fileName) {
+                verifyLink.href = `/validar?doc=${encodeURIComponent(docResult.fileName)}`;
+            }
+
+            if (resultCard) {
+                resultCard.classList.remove("hidden");
+                resultCard.scrollIntoView({ behavior: "smooth" });
+            }
         }
 
         if (btnText && button) {
-            btnText.textContent = "Generar Documento";
+            btnText.textContent = "Generar Certificado";
             button.removeAttribute("disabled");
             button.classList.remove("opacity-75", "cursor-not-allowed");
             if (btnIcon) btnIcon.classList.remove("animate-bounce");
         }
-
-        console.log("Resultado del documento:", docResult);
     });
 </script>

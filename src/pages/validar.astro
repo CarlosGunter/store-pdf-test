@@ -1,0 +1,364 @@
+---
+export const prerender = false;
+
+import Layout from "@/layouts/Layout.astro";
+import { checkPdfExists, getPresignedPdfUrl } from "@/modules/docs/upload-seaweed";
+
+const docParam = Astro.url.searchParams.get("doc")?.trim() || "";
+
+let docData: {
+    exists: boolean;
+    key?: string;
+    studentName?: string;
+    issueDate?: string;
+    presignedUrl?: string;
+    expiresIn?: number;
+    expiresAt?: string;
+    fileSize?: number;
+} = { exists: false };
+
+if (docParam) {
+    const checkResult = await checkPdfExists({ key: docParam });
+
+    if (checkResult.exists) {
+        const expiresIn = 300; // 5 minutos de validez para la URL firmada
+        const presignedResult = await getPresignedPdfUrl({ key: docParam, expiresIn });
+
+        // Extraer nombre y fecha a partir del nombre de archivo (formato: diploma_MM-DD-YYYY-HH-mm-ss_Nombre_Apellido.pdf)
+        let studentName = "Alumno";
+        let issueDate = checkResult.lastModified ? new Date(checkResult.lastModified).toLocaleString('es-ES') : "Fecha registrada";
+
+        const match = docParam.match(/^diploma_(\d{2}-\d{2}-\d{4}-\d{2}-\d{2}-\d{2})_(.+)\.pdf$/);
+        if (match) {
+            const rawDate = match[1];
+            const rawName = match[2];
+            studentName = decodeURIComponent(rawName.replace(/_/g, " "));
+
+            const parts = rawDate.split("-");
+            if (parts.length >= 6) {
+                // MM-DD-YYYY HH:mm:ss
+                const formattedDate = new Date(`${parts[2]}-${parts[0]}-${parts[1]}T${parts[3]}:${parts[4]}:${parts[5]}`);
+                if (!isNaN(formattedDate.getTime())) {
+                    issueDate = formattedDate.toLocaleDateString("es-ES", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    });
+                }
+            }
+        }
+
+        docData = {
+            exists: true,
+            key: docParam,
+            studentName,
+            issueDate,
+            presignedUrl: presignedResult.url,
+            expiresIn: presignedResult.expiresIn,
+            expiresAt: presignedResult.expiresAt,
+            fileSize: checkResult.contentLength,
+        };
+    }
+}
+---
+
+<Layout>
+    <div class="min-h-screen w-full bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto space-y-6">
+
+            <!-- Navegación superior -->
+            <div class="flex items-center justify-between">
+                <a href="/" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Volver al Generador
+                </a>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                    Sistema de Verificación S3 / SeaweedFS
+                </span>
+            </div>
+
+            {docParam && docData.exists ? (
+                <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+                    
+                    <div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-6 py-4 text-white flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-white/20 rounded-full backdrop-blur-sm">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold">Documento Oficial Verificado</h1>
+                                <p class="text-xs text-emerald-100">Firma digital e integridad comprobada en Object Storage</p>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 bg-white text-emerald-800 text-xs font-bold rounded-full shadow-sm uppercase tracking-wide">
+                            Válido & Auténtico
+                        </span>
+                    </div>
+
+                    <div class="p-6 sm:p-8 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-5 rounded-xl border border-slate-200/80">
+                            <div>
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Otorgado a</p>
+                                <p class="text-2xl font-extrabold text-slate-900 mt-1">{docData.studentName}</p>
+                            </div>
+
+                            <div>
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha de Emisión</p>
+                                <p class="text-base font-semibold text-slate-800 mt-1">{docData.issueDate}</p>
+                            </div>
+
+                            <div class="md:col-span-2">
+                                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Identificador de Archivo</p>
+                                <p class="text-xs font-mono text-slate-600 bg-white p-2.5 rounded border border-slate-200 mt-1 break-all select-all">
+                                    {docData.key}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-5 space-y-4">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center space-x-2">
+                                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" id="status-dot"></span>
+                                    <span class="text-sm font-bold text-indigo-950" id="status-title">Acceso Temporal Seguro (Presigned URL)</span>
+                                </div>
+
+                                <div class="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-lg border border-indigo-200 text-sm font-semibold shadow-xs">
+                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-slate-600 text-xs">Expira en:</span>
+                                    <span id="countdown-text" class="font-mono text-indigo-700 font-bold">05:00</span>
+                                </div>
+                            </div>
+
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                El documento está almacenado de forma privada en SeaweedFS. Esta sesión de visualización utiliza una <strong>URL temporal firmada con expiración</strong>. Si el tiempo expira, el almacenamiento denegará el acceso hasta que se renueve la firma.
+                            </p>
+
+                            <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                <div id="progress-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-1000 ease-linear" style="width: 100%;"></div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-3 pt-2">
+                                <a
+                                    id="download-btn"
+                                    href={docData.presignedUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors cursor-pointer"
+                                >
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    Abrir PDF en nueva pestaña
+                                </a>
+
+                                <button
+                                    type="button"
+                                    id="renew-btn"
+                                    class="inline-flex items-center px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg border border-slate-300 shadow-xs transition-colors cursor-pointer"
+                                >
+                                    <svg id="renew-icon" class="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                    <span id="renew-text">Renovar URL temporal</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <h3 class="text-sm font-semibold text-slate-800 flex items-center">
+                                <svg class="w-4 h-4 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Vista Previa del Documento Oficial
+                            </h3>
+                            
+                            <div class="w-full h-[600px] bg-slate-100 rounded-xl border border-slate-300 overflow-hidden relative shadow-inner">
+                                <iframe
+                                    id="pdf-frame"
+                                    src={docData.presignedUrl}
+                                    class="w-full h-full border-0"
+                                    title="Visor de Diploma"
+                                ></iframe>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            ) : docParam ? (
+                <div class="bg-white rounded-2xl shadow-lg border border-red-200 p-8 text-center space-y-5">
+                    <div class="mx-auto w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900">Certificado No Encontrado</h2>
+                        <p class="text-sm text-slate-600 mt-2 max-w-md mx-auto">
+                            No se ha podido verificar la autenticidad del documento solicitado en el almacenamiento oficial. El archivo no existe o el identificador fue alterado.
+                        </p>
+                        <p class="text-xs font-mono text-slate-500 bg-slate-100 p-2 rounded max-w-lg mx-auto mt-4 break-all">
+                            ID: {docParam}
+                        </p>
+                    </div>
+
+                    <div class="pt-4">
+                        <a href="/" class="inline-flex items-center px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-lg shadow transition-colors">
+                            Generar un nuevo diploma
+                        </a>
+                    </div>
+                </div>
+            ) : (
+                <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 space-y-6 max-w-xl mx-auto">
+                    <div class="text-center space-y-2">
+                        <div class="mx-auto w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </div>
+                        <h2 class="text-xl font-bold text-slate-900">Validar Certificado</h2>
+                        <p class="text-sm text-slate-500">Ingresa el identificador o nombre del archivo para consultar su validez en SeaweedFS.</p>
+                    </div>
+
+                    <form method="GET" action="/validar" class="space-y-4">
+                        <div>
+                            <label for="doc-input" class="block text-xs font-semibold text-slate-700 uppercase">Nombre o ID del Archivo</label>
+                            <input
+                                id="doc-input"
+                                name="doc"
+                                type="text"
+                                required
+                                placeholder="diploma_MM-DD-YYYY-...pdf"
+                                class="mt-1 w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm rounded-lg shadow transition-colors cursor-pointer"
+                        >
+                            Verificar Autenticidad
+                        </button>
+                    </form>
+                </div>
+            )}
+
+        </div>
+    </div>
+</Layout>
+
+<script>
+    import { actions } from "astro:actions";
+
+    const docKey = new URLSearchParams(window.location.search).get("doc");
+    let totalSeconds = 300; // 5 minutos
+    let remainingSeconds = totalSeconds;
+    let timerInterval: number | undefined;
+
+    const countdownText = document.getElementById("countdown-text");
+    const progressBar = document.getElementById("progress-bar");
+    const statusDot = document.getElementById("status-dot");
+    const statusTitle = document.getElementById("status-title");
+    const renewBtn = document.getElementById("renew-btn");
+    const renewText = document.getElementById("renew-text");
+    const renewIcon = document.getElementById("renew-icon");
+    const downloadBtn = document.getElementById("download-btn") as HTMLAnchorElement | null;
+    const pdfFrame = document.getElementById("pdf-frame") as HTMLIFrameElement | null;
+
+    function formatTime(seconds: number): string {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    function startTimer(duration: number) {
+        if (timerInterval) clearInterval(timerInterval);
+        totalSeconds = duration;
+        remainingSeconds = duration;
+
+        if (statusDot) {
+            statusDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+        }
+        if (statusTitle) {
+            statusTitle.textContent = "Acceso Temporal Seguro (Presigned URL)";
+            statusTitle.className = "text-sm font-bold text-indigo-950";
+        }
+
+        const updateTimer = () => {
+            if (remainingSeconds <= 0) {
+                clearInterval(timerInterval);
+                if (countdownText) countdownText.textContent = "00:00 (Expirado)";
+                if (progressBar) progressBar.style.width = "0%";
+                
+                if (statusDot) {
+                    statusDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-rose-500";
+                }
+                if (statusTitle) {
+                    statusTitle.textContent = "URL Temporal Expirada (Acceso Denegado 403)";
+                    statusTitle.className = "text-sm font-bold text-rose-700";
+                }
+                return;
+            }
+
+            remainingSeconds--;
+            if (countdownText) countdownText.textContent = formatTime(remainingSeconds);
+            if (progressBar) {
+                const percentage = (remainingSeconds / totalSeconds) * 100;
+                progressBar.style.width = `${percentage}%`;
+                if (percentage < 20) {
+                    progressBar.className = "bg-rose-500 h-2 rounded-full transition-all duration-1000 ease-linear";
+                } else if (percentage < 50) {
+                    progressBar.className = "bg-amber-500 h-2 rounded-full transition-all duration-1000 ease-linear";
+                } else {
+                    progressBar.className = "bg-indigo-600 h-2 rounded-full transition-all duration-1000 ease-linear";
+                }
+            }
+        };
+
+        if (countdownText) countdownText.textContent = formatTime(remainingSeconds);
+        timerInterval = window.setInterval(updateTimer, 1000);
+    }
+
+    if (docKey && countdownText) {
+        startTimer(300);
+    }
+
+    renewBtn?.addEventListener("click", async () => {
+        if (!docKey) return;
+
+        if (renewText) renewText.textContent = "Renovando...";
+        if (renewIcon) renewIcon.classList.add("animate-spin");
+        renewBtn.setAttribute("disabled", "true");
+
+        try {
+            const { data, error } = await actions.getPresignedUrl({
+                key: docKey,
+                expiresIn: 300,
+            });
+
+            if (error || !data || !data.url) {
+                alert("Error al renovar la URL firmada");
+                console.error(error);
+            } else {
+                if (pdfFrame) pdfFrame.src = data.url;
+                if (downloadBtn) downloadBtn.href = data.url;
+                startTimer(data.expiresIn || 300);
+            }
+        } catch (err) {
+            console.error("Error al solicitar URL firmada:", err);
+        } finally {
+            if (renewText) renewText.textContent = "Renovar URL temporal";
+            if (renewIcon) renewIcon.classList.remove("animate-spin");
+            renewBtn.removeAttribute("disabled");
+        }
+    });
+</script>
