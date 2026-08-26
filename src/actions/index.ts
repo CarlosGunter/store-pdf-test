@@ -1,7 +1,7 @@
 import { defineAction } from 'astro:actions';
 import { z } from 'astro/zod';
 import { modifyDoc } from 'src/modules/docs/generate-doc';
-import { getPresignedPdfUrl } from 'src/modules/docs/upload-seaweed';
+import { getPresignedPdfUrl, listSeaweedDocuments } from 'src/modules/docs/upload-seaweed';
 
 export const server = {
     createCertificate: defineAction({
@@ -17,6 +17,12 @@ export const server = {
         }),
         handler: async ({ key, expiresIn }) => {
             return await getPresignedPdfUrl({ key, expiresIn });
+        },
+    }),
+    listDocuments: defineAction({
+        accept: 'json',
+        handler: async () => {
+            return await listSeaweedDocuments();
         },
     }),
 }
