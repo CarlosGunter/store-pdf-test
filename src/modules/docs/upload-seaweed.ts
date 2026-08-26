@@ -1,4 +1,4 @@
-import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, HeadBucketCommand, CreateBucketCommand, PutObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { tryCatch } from "src/utils/try-catch";
 
@@ -174,3 +174,99 @@ export async function checkPdfExists({
         contentType: headData.ContentType,
     };
 }
+
+export interface DocumentItem {
+    key: string;
+    studentName: string;
+    issueDate: string;
+    fileSize?: number;
+    lastModified?: Date;
+}
+
+/**
+ * Lista todos los documentos PDF disponibles en el bucket de SeaweedFS.
+ */
+export async function listSeaweedDocuments({
+    bucketName = DEFAULT_BUCKET,
+}: {
+    bucketName?: string;
+} = {}) {
+    const s3Client = getSeaweedS3Client();
+
+    const bucketReady = await ensureBucketExists(s3Client, bucketName);
+    if (!bucketReady) {
+        return {
+            success: false,
+            documents: [] as DocumentItem[],
+            error: `No se pudo acceder al bucket '${bucketName}'`,
+        };
+    }
+
+    const { data: listResponse, error: listError } = await tryCatch(
+        s3Client.send(
+            new ListObjectsV2Command({
+                Bucket: bucketName,
+            })
+        )
+    );
+
+    if (listError || !listResponse) {
+        console.error(`Error al listar archivos del bucket '${bucketName}':`, listError);
+        return {
+            success: false,
+            documents: [] as DocumentItem[],
+            error: listError,
+        };
+    }
+
+    const rawContents = listResponse.Contents || [];
+    const documents: DocumentItem[] = rawContents
+        .filter((item) => item.Key && item.Key.endsWith('.pdf'))
+        .map((item) => {
+            const key = item.Key!;
+            let studentName = "Alumno";
+            let issueDate = item.LastModified ? new Date(item.LastModified).toLocaleString('es-ES') : "Fecha no disponible";
+
+            const match = key.match(/^diploma_(\d{2}-\d{2}-\d{4}-\d{2}-\d{2}-\d{2})_(.+)\.pdf$/);
+            if (match) {
+                const rawDate = match[1];
+                const rawName = match[2];
+                studentName = decodeURIComponent(rawName.replace(/_/g, " "));
+
+                const parts = rawDate.split("-");
+                if (parts.length >= 6) {
+                    const formattedDate = new Date(`${parts[2]}-${parts[0]}-${parts[1]}T${parts[3]}:${parts[4]}:${parts[5]}`);
+                    if (!isNaN(formattedDate.getTime())) {
+                        issueDate = formattedDate.toLocaleDateString("es-ES", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                        });
+                    }
+                }
+            } else {
+                studentName = key.replace(/\.pdf$/, "").replace(/_/g, " ");
+            }
+
+            return {
+                key,
+                studentName,
+                issueDate,
+                fileSize: item.Size,
+                lastModified: item.LastModified,
+            };
+        })
+        .sort((a, b) => {
+            const timeA = a.lastModified ? new Date(a.lastModified).getTime() : 0;
+            const timeB = b.lastModified ? new Date(b.lastModified).getTime() : 0;
+            return timeB - timeA;
+        });
+
+    return {
+        success: true,
+        documents,
+    };
+}
+

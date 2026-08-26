@@ -44,7 +44,10 @@ const {
         </div>
 
         <div class="mt-6">
-            <label for="receiver" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+            <label
+                for="receiver"
+                class="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
+            >
                 Nombre del Alumno
             </label>
             <input
@@ -90,24 +93,44 @@ const {
     >
         <div class="flex items-center space-x-3 text-emerald-700">
             <div class="p-2 bg-emerald-100 rounded-full">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                <svg
+                    class="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 13l4 4L19 7"></path>
                 </svg>
             </div>
             <div>
-                <h4 class="text-lg font-bold text-slate-900">¡Certificado Generado Exitosamente!</h4>
-                <p class="text-xs text-slate-500">Guardado en SeaweedFS y listo para verificación con URL temporal.</p>
+                <h4 class="text-lg font-bold text-slate-900">
+                    ¡Certificado Generado Exitosamente!
+                </h4>
+                <p class="text-xs text-slate-500">
+                    Guardado en SeaweedFS y listo para verificación con URL
+                    temporal.
+                </p>
             </div>
         </div>
 
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+        <div
+            class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2"
+        >
             <div class="flex justify-between text-sm">
                 <span class="text-slate-500">Alumno:</span>
-                <span id="result-student" class="font-bold text-slate-800"></span>
+                <span id="result-student" class="font-bold text-slate-800"
+                ></span>
             </div>
             <div class="flex justify-between text-sm">
                 <span class="text-slate-500">Archivo en S3:</span>
-                <span id="result-file" class="font-mono text-xs text-indigo-600 truncate max-w-[280px]"></span>
+                <span
+                    id="result-file"
+                    class="font-mono text-xs text-indigo-600 truncate max-w-70"
+                ></span>
             </div>
         </div>
 
@@ -118,8 +141,18 @@ const {
                 href="#"
                 class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow transition-colors cursor-pointer"
             >
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                <svg
+                    class="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    ></path>
                 </svg>
                 Probar Verificación por QR (Presigned URL)
             </a>
@@ -130,15 +163,21 @@ const {
 <script>
     import { actions } from "astro:actions";
 
-    const form = document.getElementById("generate-form") as HTMLFormElement | null;
-    const button = document.getElementById("generate-btn") as HTMLButtonElement | null;
+    const form = document.getElementById(
+        "generate-form",
+    ) as HTMLFormElement | null;
+    const button = document.getElementById(
+        "generate-btn",
+    ) as HTMLButtonElement | null;
     const btnText = document.getElementById("btn-text");
     const btnIcon = document.getElementById("btn-icon");
 
     const resultCard = document.getElementById("result-card");
     const resultStudent = document.getElementById("result-student");
     const resultFile = document.getElementById("result-file");
-    const verifyLink = document.getElementById("verify-link") as HTMLAnchorElement | null;
+    const verifyLink = document.getElementById(
+        "verify-link",
+    ) as HTMLAnchorElement | null;
 
     form?.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -151,13 +190,15 @@ const {
         }
 
         const formData = new FormData(form!);
-        const { error: docError, data: docResult } = await actions.createCertificate(formData);
+        const { error: docError, data: docResult } =
+            await actions.createCertificate(formData);
 
         if (docError) {
             console.error("Error al generar el documento:", docError);
             alert(`Hubo un error: ${docError.message || "Desconocido"}`);
         } else if (docResult && docResult.success) {
-            if (resultStudent) resultStudent.textContent = docResult.receiver || "";
+            if (resultStudent)
+                resultStudent.textContent = docResult.receiver || "";
             if (resultFile) resultFile.textContent = docResult.fileName || "";
             if (verifyLink && docResult.fileName) {
                 verifyLink.href = `/validar?doc=${encodeURIComponent(docResult.fileName)}`;
@@ -167,6 +208,15 @@ const {
                 resultCard.classList.remove("hidden");
                 resultCard.scrollIntoView({ behavior: "smooth" });
             }
+
+            window.dispatchEvent(
+                new CustomEvent("document-created", {
+                    detail: {
+                        fileName: docResult.fileName,
+                        receiver: docResult.receiver,
+                    },
+                }),
+            );
         }
 
         if (btnText && button) {
